@@ -22,7 +22,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
@@ -37,6 +36,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -60,7 +60,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executor
 
-// Exact Samsung One UI Frosted Circle Tokens matching screenshot
 private val SamsungKeyFill = Color.White.copy(alpha = 0.20f)
 private val SamsungKeyPressedFill = Color.White.copy(alpha = 0.36f)
 private val SamsungPillFill = Color.White.copy(alpha = 0.22f)
@@ -361,7 +360,6 @@ class PasswordOverlayActivity : FragmentActivity() {
 @Composable
 fun SamsungOneUiBlurredBackdrop() {
     Box(modifier = Modifier.fillMaxSize()) {
-        // Multi-tone blurred wallpaper ambient layer matching screenshot palette
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -392,7 +390,6 @@ fun SamsungOneUiBlurredBackdrop() {
                     )
                 )
         )
-        // One UI lock screen dim scrim
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -498,7 +495,6 @@ fun PinPasswordOverlayScreen(
                     .navigationBarsPadding(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top Lock Icon positioned identically to One UI lock screen
                 Spacer(modifier = Modifier.height(if (screenHeightDp < 650.dp) 18.dp else 30.dp))
 
                 Icon(
@@ -510,7 +506,6 @@ fun PinPasswordOverlayScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Title & Subtitle right above the keypad
                 Text(
                     text = "Enter PIN",
                     color = Color.White,
@@ -533,7 +528,6 @@ fun PinPasswordOverlayScreen(
                     textAlign = TextAlign.Center
                 )
 
-                // Dynamic PIN Dots row (appears cleanly when typing, reserves subtle height)
                 Box(
                     modifier = Modifier
                         .height(34.dp)
@@ -545,7 +539,6 @@ fun PinPasswordOverlayScreen(
                     }
                 }
 
-                // 3x4 Frosted Circle Keypad
                 KeypadSection(
                     passwordState = passwordState,
                     minLength = minLength,
@@ -565,7 +558,6 @@ fun PinPasswordOverlayScreen(
 
                 Spacer(modifier = Modifier.height(22.dp))
 
-                // Frosted Pill Action Button (matches "Emergency call" pill shape & tint)
                 if (showCloseButton) {
                     Box(
                         modifier = Modifier
@@ -588,7 +580,6 @@ fun PinPasswordOverlayScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Bottom-right Samsung One UI back chevron
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -656,7 +647,6 @@ fun KeypadSection(
 
     val isLandscape = screenWidth > screenHeight
 
-    // Exact proportions from screenshot: ~76dp frosted circles with ~22dp horizontal & ~14dp vertical spacing
     val horizontalSpacing = remember(screenWidthDp, isLandscape) {
         if (isLandscape) 16.dp else 24.dp
     }
@@ -816,6 +806,76 @@ private fun handleKeypadSpecialButtonLogic(
     }
 }
 
+// Compatibility KeypadRow for SetPasswordScreen.kt using the exact same Samsung One UI frosted circle style
+@Composable
+fun KeypadRow(
+    disableHaptics: Boolean = false,
+    keys: List<String>,
+    icons: List<ImageVector?> = emptyList(),
+    onKeyClick: (String) -> Unit,
+    buttonSize: Dp,
+    buttonSpacing: Dp
+) {
+    val context = LocalContext.current
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(buttonSpacing),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        keys.forEachIndexed { index, key ->
+            val hasIcon = icons.isNotEmpty() && index < icons.size && icons[index] != null
+            if (hasIcon) {
+                val interactionSource = remember { MutableInteractionSource() }
+                val isPressed by interactionSource.collectIsPressedAsState()
+                val scale by animateFloatAsState(
+                    targetValue = if (isPressed) 0.90f else 1f,
+                    animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                    label = "compatActionScale"
+                )
+                Box(
+                    modifier = Modifier
+                        .size(buttonSize)
+                        .scale(scale)
+                        .clip(CircleShape)
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = {
+                                if (!disableHaptics) vibrate(context, 35)
+                                onKeyClick(key)
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (key == "proceed") {
+                        Text(
+                            text = "OK",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (key == "backspace") Icons.AutoMirrored.Filled.Backspace else icons[index]!!,
+                            contentDescription = key,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            } else {
+                SamsungFrostedCircleKey(
+                    digit = key,
+                    subLetters = SamsungT9Map[key].orEmpty(),
+                    disableHaptics = disableHaptics,
+                    buttonSize = buttonSize,
+                    onClick = { onKeyClick(key) }
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun SamsungKeypadRow(
     disableHaptics: Boolean,
@@ -825,186 +885,4 @@ private fun SamsungKeypadRow(
     horizontalSpacing: Dp
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        keys.forEach { digit ->
-            SamsungFrostedCircleKey(
-                digit = digit,
-                subLetters = SamsungT9Map[digit].orEmpty(),
-                disableHaptics = disableHaptics,
-                buttonSize = buttonSize,
-                onClick = { onKeyClick(digit) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun SamsungBottomRow(
-    disableHaptics: Boolean,
-    hasMinDigits: Boolean,
-    onBackspaceClick: () -> Unit,
-    onZeroClick: () -> Unit,
-    onOkClick: () -> Unit,
-    buttonSize: Dp,
-    horizontalSpacing: Dp
-) {
-    val context = LocalContext.current
-
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Left: Borderless solid white Backspace tag icon (exact screenshot match)
-        val backInteraction = remember { MutableInteractionSource() }
-        val backPressed by backInteraction.collectIsPressedAsState()
-        val backScale by animateFloatAsState(
-            targetValue = if (backPressed) 0.88f else 1f,
-            animationSpec = spring(stiffness = Spring.StiffnessMedium),
-            label = "backScale"
-        )
-
-        Box(
-            modifier = Modifier
-                .size(buttonSize)
-                .scale(backScale)
-                .clip(CircleShape)
-                .clickable(
-                    interactionSource = backInteraction,
-                    indication = null,
-                    onClick = {
-                        if (!disableHaptics) vibrate(context, 35)
-                        onBackspaceClick()
-                    }
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Backspace,
-                contentDescription = "Backspace",
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-
-        // Center: "0" inside frosted circle (no + sub-text, exact screenshot match)
-        SamsungFrostedCircleKey(
-            digit = "0",
-            subLetters = "",
-            disableHaptics = disableHaptics,
-            buttonSize = buttonSize,
-            onClick = onZeroClick
-        )
-
-        // Right: Borderless "OK" text (dimmed until 4+ digits, bright white when ready)
-        val okInteraction = remember { MutableInteractionSource() }
-        val okPressed by okInteraction.collectIsPressedAsState()
-        val okScale by animateFloatAsState(
-            targetValue = if (okPressed) 0.90f else 1f,
-            animationSpec = spring(stiffness = Spring.StiffnessMedium),
-            label = "okScale"
-        )
-
-        Box(
-            modifier = Modifier
-                .size(buttonSize)
-                .scale(okScale)
-                .clip(CircleShape)
-                .clickable(
-                    interactionSource = okInteraction,
-                    indication = null,
-                    onClick = {
-                        if (!disableHaptics) vibrate(context, 35)
-                        onOkClick()
-                    }
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "OK",
-                color = if (hasMinDigits) Color.White else Color.White.copy(alpha = 0.50f),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.5.sp
-            )
-        }
-    }
-}
-
-@Composable
-private fun SamsungFrostedCircleKey(
-    digit: String,
-    subLetters: String,
-    disableHaptics: Boolean,
-    buttonSize: Dp,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    val bgColor by animateColorAsState(
-        targetValue = if (isPressed) SamsungKeyPressedFill else SamsungKeyFill,
-        animationSpec = tween(durationMillis = 100),
-        label = "samsungKeyFill"
-    )
-
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.93f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "samsungKeyScale"
-    )
-
-    Box(
-        modifier = Modifier
-            .size(buttonSize)
-            .scale(scale)
-            .clip(CircleShape)
-            .background(bgColor)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = {
-                    if (!disableHaptics) vibrate(context, 35)
-                    onClick()
-                }
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        if (subLetters.isNotEmpty()) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.offset(y = (-1).dp)
-            ) {
-                Text(
-                    text = digit,
-                    color = Color.White,
-                    fontSize = 31.sp,
-                    fontWeight = FontWeight.Normal,
-                    lineHeight = 33.sp
-                )
-                Text(
-                    text = subLetters,
-                    color = Color.White.copy(alpha = 0.82f),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Normal,
-                    letterSpacing = 1.1.sp,
-                    lineHeight = 11.sp
-                )
-            }
-        } else {
-            // Key "1" and Key "0" have no sub-letters in Samsung One UI, centered vertically
-            Text(
-                text = digit,
-                color = Color.White,
-                fontSize = 31.sp,
-                fontWeight = FontWeight.Normal
-            )
-        }
-    }
-}
+        horizontalArrangement
